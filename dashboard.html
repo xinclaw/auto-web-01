@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智集電商 - 工作台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  
+  <!-- 手機版漢堡選單按鈕 -->
+  <button id="menuToggle" class="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-xl shadow-lg border border-gray-200">
+    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+
+  <!-- 遮罩層（手機版） -->
+  <div id="overlay" class="lg:hidden fixed inset-0 bg-black/50 z-40 hidden"></div>
+  
+  <!-- 左側導航欄 -->
+  <aside id="sidebar" class="w-64 bg-white shadow-lg min-h-screen fixed left-0 top-0 border-r border-gray-100 transition-transform duration-300 -translate-x-full lg:translate-x-0 z-45">
+    
+    <!-- 關閉按鈕（手機版） -->
+    <button id="closeSidebar" class="lg:hidden absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    
+    <div class="p-6 border-b border-gray-100">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🛒</span>
+        <h1 class="text-lg font-bold text-gray-800">智集電商</h1>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">內部工具系統</p>
+    </div>
+    
+    <nav class="p-4 space-y-2">
+      <a href="#" class="nav-item active flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition" data-page="titles">
+        <span class="text-lg">✍️</span>
+        <span class="font-medium">標題撰寫</span>
+      </a>
+      
+      <a href="#" class="nav-item flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition" data-page="details">
+        <span class="text-lg">📝</span>
+        <span class="font-medium">詳情內頁</span>
+      </a>
+      
+      <a href="#" class="nav-item flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition" data-page="car-model">
+        <span class="text-lg">🚗</span>
+        <span class="font-medium">車型辨識</span>
+      </a>
+      
+      <a href="#" class="nav-item flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition" data-page="orders">
+        <span class="text-lg">📋</span>
+        <span class="font-medium">訂單管理</span>
+      </a>
+      
+      <a href="#" class="nav-item flex items-center gap-3 p-3 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition" data-page="settings">
+        <span class="text-lg">⚙️</span>
+        <span class="font-medium">設定</span>
+      </a>
+    </nav>
+    
+    <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
+      <a href="index.html" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-500 transition font-medium">
+        <span>🚪</span>
+        <span>登出</span>
+      </a>
+    </div>
+  </aside>
+  
+  <!-- 主內容區 -->
+  <main class="flex-1 lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
+    
+    <!-- 標題撰寫頁面 -->
+    <section id="page-titles" class="page active">
+      <div class="bg-white rounded-3xl p-4 lg:p-8 shadow-lg border border-gray-50 max-w-2xl mx-auto">
+        <div class="flex items-center gap-2 mb-6">
+          <span class="text-2xl">✍️</span>
+          <h2 class="text-xl font-bold text-gray-800">標題撰寫</h2>
+        </div>
+        
+        <div class="space-y-5">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品分類搜尋</label>
+            <input type="text" id="categoryInput" placeholder="輸入分類 (例如：寵物 / 汽機車)"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">主詞關鍵字（本次商品主標題字）</label>
+            <input type="text" id="subjectInput" placeholder="例如：貓飼料 / 豐田鑰匙"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <button id="generateBtn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition active:scale-95 shadow-md text-lg">
+            生成優化標題
+          </button>
+        </div>
+        
+        <div id="resultSection" class="mt-8 pt-6 border-t border-gray-100 hidden">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+            <div class="flex items-center gap-1">
+              <span class="text-sm">✨</span>
+              <label class="text-xs font-bold text-blue-500 uppercase tracking-wider">優化建議標題</label>
+            </div>
+            <span id="charCount" class="text-[10px] text-gray-400 font-mono">0/60 字</span>
+          </div>
+          
+          <div id="titleOutput"
+            class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-gray-800 font-medium text-base leading-relaxed break-words min-h-[80px]">
+            等待生成中...
+          </div>
+          
+          <button onclick="copyToClipboard()" id="copyBtn"
+            class="mt-4 w-full py-3 bg-slate-800 text-white text-sm rounded-xl hover:bg-black transition font-bold shadow-sm">
+            複製此標題
+          </button>
+          
+          <p id="statusInfo" class="mt-3 text-center text-[11px] text-gray-400 font-medium"></p>
+          <p id="rationaleInfo" class="mt-2 text-center text-[11px] text-gray-500 font-medium"></p>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 詳情內頁 -->
+    <section id="page-details" class="page">
+      <div class="bg-white rounded-3xl p-4 lg:p-8 shadow-lg border border-gray-50 max-w-2xl mx-auto">
+        <div class="flex items-center gap-2 mb-6">
+          <span class="text-2xl">📝</span>
+          <h2 class="text-xl font-bold text-gray-800">詳情內頁撰寫</h2>
+        </div>
+        
+        <div class="space-y-5">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品名稱</label>
+            <input type="text" id="productName" placeholder="輸入商品名稱"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品分類</label>
+            <select id="productCategory"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+              <option value="car">汽車/機車零件</option>
+              <option value="pet">寵物用品</option>
+              <option value="accessory">飾品</option>
+              <option value="hardware">五金/工具</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品特色（用逗號分隔）</label>
+            <textarea id="productInfo" rows="3" placeholder="輸入商品特色，如：碳纖維材质,防水,易安裝"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"></textarea>
+          </div>
+          
+          <button id="generateDetailBtn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition active:scale-95 shadow-md text-lg">
+            生成詳情頁
+          </button>
+        </div>
+        
+        <div id="detailResult" class="mt-8 pt-6 border-t border-gray-100 hidden">
+          <label class="text-xs font-bold text-blue-500 uppercase tracking-wider">生成的詳情頁</label>
+          <div id="detailOutput" class="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-xl text-gray-800 text-sm leading-relaxed whitespace-pre-wrap"></div>
+          <button onclick="copyDetail()" id="copyDetailBtn"
+            class="mt-4 w-full py-3 bg-slate-800 text-white text-sm rounded-xl hover:bg-black transition font-bold shadow-sm">
+            複製詳情頁
+          </button>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 車型辨識 -->
+    <section id="page-car-model" class="page">
+      <div class="bg-white rounded-3xl p-4 lg:p-8 shadow-lg border border-gray-50 max-w-2xl mx-auto">
+        <div class="flex items-center gap-2 mb-6">
+          <span class="text-2xl">🚗</span>
+          <h2 class="text-xl font-bold text-gray-800">車型圖片辨識</h2>
+        </div>
+        
+        <div class="space-y-5">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">上傳車型圖片</label>
+            <input type="file" id="carImage" accept="image/*"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <button id="recognizeCarBtn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition active:scale-95 shadow-md text-lg">
+            辨識車型
+          </button>
+        </div>
+        
+        <div id="carResult" class="mt-8 pt-6 border-t border-gray-100 hidden">
+          <label class="text-xs font-bold text-blue-500 uppercase tracking-wider">辨識結果</label>
+          <div id="carOutput" class="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-xl text-gray-800 text-sm"></div>
+          <button id="generateOrderBtn"
+            class="mt-4 w-full py-3 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 transition font-bold shadow-sm">
+            生成訂單
+          </button>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 訂單管理 -->
+    <section id="page-orders" class="page">
+      <div class="bg-white rounded-3xl p-4 lg:p-8 shadow-lg border border-gray-50">
+        <div class="flex items-center gap-2 mb-6">
+          <span class="text-2xl">📋</span>
+          <h2 class="text-xl font-bold text-gray-800">訂單管理</h2>
+        </div>
+        <p class="text-gray-500">功能開發中...</p>
+      </div>
+    </section>
+    
+    <!-- 設定 -->
+    <section id="page-settings" class="page">
+      <div class="bg-white rounded-3xl p-4 lg:p-8 shadow-lg border border-gray-50 max-w-2xl mx-auto">
+        <div class="flex items-center gap-2 mb-6">
+          <span class="text-2xl">⚙️</span>
+          <h2 class="text-xl font-bold text-gray-800">系統設定</h2>
+        </div>
+        
+        <div class="space-y-5">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">n8n Webhook URL</label>
+            <input type="text" id="n8nWebhook" placeholder="https://your-n8n.com/webhook/..."
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Supabase URL</label>
+            <input type="text" id="supabaseUrl" placeholder="https://xxx.supabase.co"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Supabase Anon Key</label>
+            <input type="text" id="supabaseKey" placeholder="eyJ..."
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+          
+          <button id="saveSettingsBtn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition active:scale-95 shadow-md text-lg">
+            儲存設定
+          </button>
+        </div>
+      </div>
+    </section>
+    
+  </main>
+
+  <script>
+    // ======= [設定區] =======
+    const CONFIG = {
+      n8nWebhook: localStorage.getItem('n8nWebhook') || 'YOUR_N8N_WEBHOOK_URL',
+      supabaseUrl: localStorage.getItem('supabaseUrl') || '',
+      supabaseKey: localStorage.getItem('supabaseKey') || ''
+    };
+    
+    // 載入已儲存的設定
+    window.onload = () => {
+      if (localStorage.getItem('n8nWebhook')) {
+        document.getElementById('n8nWebhook').value = localStorage.getItem('n8nWebhook');
+      }
+      if (localStorage.getItem('supabaseUrl')) {
+        document.getElementById('supabaseUrl').value = localStorage.getItem('supabaseUrl');
+      }
+      if (localStorage.getItem('supabaseKey')) {
+        document.getElementById('supabaseKey').value = localStorage.getItem('supabaseKey');
+      }
+    };
+    // =========================
+
+    // RWD 選單功能
+    const menuToggle = document.getElementById('menuToggle');
+    const closeSidebar = document.getElementById('closeSidebar');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+
+    function openMenu() {
+      sidebar.classList.remove('-translate-x-full');
+      overlay.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeMenu() {
+      sidebar.classList.add('-translate-x-full');
+      overlay.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    menuToggle.addEventListener('click', openMenu);
+    closeSidebar.addEventListener('click', closeMenu);
+    overlay.addEventListener('click', closeMenu);
+
+    // 頁面導航
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active', 'bg-blue-50', 'text-blue-600'));
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        
+        item.classList.add('active', 'bg-blue-50', 'text-blue-600');
+        document.getElementById(`page-${item.dataset.page}`).classList.add('active');
+        
+        // 選擇功能表後關閉選單
+        if (window.innerWidth < 1024) {
+          closeMenu();
+        }
+      });
+    });
+
+    // 標題撰寫功能
+    const btn = document.getElementById('generateBtn');
+    const resultSection = document.getElementById('resultSection');
+    const titleOutput = document.getElementById('titleOutput');
+    const statusInfo = document.getElementById('statusInfo');
+    const rationaleInfo = document.getElementById('rationaleInfo');
+    const charCount = document.getElementById('charCount');
+
+    function setLoading(text, status) {
+      resultSection.classList.remove('hidden');
+      titleOutput.innerText = text;
+      titleOutput.classList.add('animate-pulse', 'text-gray-400');
+      statusInfo.innerText = status;
+      rationaleInfo.innerText = '';
+      btn.disabled = true;
+      btn.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+
+    function setResult(title, status, rationale = '') {
+      titleOutput.classList.remove('animate-pulse', 'text-gray-400');
+      titleOutput.innerText = title;
+      charCount.innerText = `${title.length}/60 字`;
+      statusInfo.innerText = status;
+      rationaleInfo.innerText = rationale ? `✨ ${rationale}` : '';
+      btn.disabled = false;
+      btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    }
+
+    btn.addEventListener('click', async () => {
+      const category = document.getElementById('categoryInput').value.trim();
+      const subject = document.getElementById('subjectInput').value.trim();
+      
+      if (!category || !subject) {
+        alert('請填寫：分類名稱、主詞關鍵字');
+        return;
+      }
+      
+      setLoading(`🚀 已送出：「${subject}」，正在生成標題...`, '生成中...');
+      
+      try {
+        const res = await fetch(`${CONFIG.n8nWebhook}/generate-title`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, subject })
+        });
+        
+        const data = await res.json();
+        
+        if (data.ok) {
+          setResult(data.title, '✅ 生成成功', data.rationale);
+        } else {
+          setResult('生成失敗', `❌ ${data.error || '未知錯誤'}`);
+        }
+      } catch (err) {
+        setResult('連線錯誤', `❌ ${err.message}`);
+      }
+    });
+
+    window.copyToClipboard = () => {
+      const text = titleOutput.innerText.trim();
+      if (!text || text.includes('錯誤') || text.includes('生成中')) return;
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const copyBtn = document.getElementById('copyBtn');
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = '✅ 已複製！';
+        setTimeout(() => copyBtn.innerText = originalText, 2000);
+      });
+    };
+
+    window.copyDetail = () => {
+      const text = document.getElementById('detailOutput').innerText.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const copyBtn = document.getElementById('copyDetailBtn');
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = '✅ 已複製！';
+        setTimeout(() => copyBtn.innerText = originalText, 2000);
+      });
+    };
+
+    // 詳情頁功能（預留）
+    document.getElementById('generateDetailBtn')?.addEventListener('click', () => {
+      const result = document.getElementById('detailResult');
+      const output = document.getElementById('detailOutput');
+      result.classList.remove('hidden');
+      output.textContent = '詳情頁功能整合中...';
+    });
+
+    // 車型辨識（預留）
+    document.getElementById('recognizeCarBtn')?.addEventListener('click', () => {
+      const result = document.getElementById('carResult');
+      const output = document.getElementById('carOutput');
+      result.classList.remove('hidden');
+      output.textContent = '車型辨識功能整合中...';
+    });
+
+    // 儲存設定
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
+      const n8nWebhook = document.getElementById('n8nWebhook').value;
+      const supabaseUrl = document.getElementById('supabaseUrl').value;
+      const supabaseKey = document.getElementById('supabaseKey').value;
+      
+      if (n8nWebhook) localStorage.setItem('n8nWebhook', n8nWebhook);
+      if (supabaseUrl) localStorage.setItem('supabaseUrl', supabaseUrl);
+      if (supabaseKey) localStorage.setItem('supabaseKey', supabaseKey);
+      
+      CONFIG.n8nWebhook = n8nWebhook;
+      CONFIG.supabaseUrl = supabaseUrl;
+      CONFIG.supabaseKey = supabaseKey;
+      
+      alert('設定已儲存');
+    });
+  </script>
+</body>
+</html>
