@@ -508,15 +508,26 @@
       output.classList.add('animate-pulse', 'text-gray-400');
 
       try {
-        // 呼叫 n8n 詳情生成工作流 v1
-        const res = await fetch(`${webhookUrl}/generate-detail-v1`, {
+        // Build prompt for detail generation
+        const prompt = `你是資深電商商品詳情頁文案策略師。請根據以下資訊生成商品詳情頁內容。
+
+商品名稱：${productTitle || productName}
+商品分類：${productCategory}
+關鍵詞：${productInfo}
+
+請生成包含以下結構的JSON（只輸出JSON，不要其他文字）：
+{
+  "features": ["特色1", "特色2", "特色3"],
+  "specs": {"規格項目": "規格內容"},
+  "scenarios": "適用場景描述",
+  "notes": "注意事項/保固資訊"
+}`;
+
+        // Call Vercel API Route
+        const res = await fetch('/api/minimax', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            keyword: productInfo,
-            category: productCategory,
-            title: productTitle || productName
-          })
+          body: JSON.stringify({ prompt })
         });
 
         // 先取 raw text
@@ -535,39 +546,55 @@
         try {
           data = JSON.parse(rawText);
         } catch (e) {
-          output.textContent = `❌ Webhook 回傳非 JSON\n原始回應：\n${rawText.slice(0, 300)}`;
+          output.textContent = `❌ API 回傳非 JSON\n原始回應：\n${rawText.slice(0, 300)}`;
           return;
         }
 
         if (data.ok) {
-          // 組合詳情頁內容
-          let content = '';
-          
-          if (data.features && data.features.length > 0) {
-            content += '📌 商品特色\n';
-            data.features.forEach((f, i) => {
-              content += `${i + 1}. ${f}\n`;
-            });
-            content += '\n';
-          }
-
-          if (data.specs && Object.keys(data.specs).length > 0) {
-            content += '📋 規格資訊\n';
-            for (const [key, val] of Object.entries(data.specs)) {
-              content += `• ${key}：${val}\n`;
+          // Parse the JSON content from MiniMax response
+          let parsed = null;
+          try {
+            const match = data.text.match(/\{[\s\S]*\}/);
+            if (match) {
+              parsed = JSON.parse(match[0]);
             }
-            content += '\n';
+          } catch (e) {
+            // Failed to parse JSON
           }
+          
+          if (parsed) {
+            // 組合詳情頁內容
+            let content = '';
+            
+            if (parsed.features && parsed.features.length > 0) {
+              content += '📌 商品特色\n';
+              parsed.features.forEach((f, i) => {
+                content += `${i + 1}. ${f}\n`;
+              });
+              content += '\n';
+            }
 
-          if (data.scenarios) {
-            content += `🎯 適用場景\n${data.scenarios}\n\n`;
+            if (parsed.specs && Object.keys(parsed.specs).length > 0) {
+              content += '📋 規格資訊\n';
+              for (const [key, val] of Object.entries(parsed.specs)) {
+                content += `• ${key}：${val}\n`;
+              }
+              content += '\n';
+            }
+
+            if (parsed.scenarios) {
+              content += `🎯 適用場景\n${parsed.scenarios}\n\n`;
+            }
+
+            if (parsed.notes) {
+              content += `⚠️ 注意事項\n${parsed.notes}`;
+            }
+
+            output.textContent = content || '生成內容為空';
+          } else {
+            // Fallback: show raw text
+            output.textContent = data.text || '生成內容為空';
           }
-
-          if (data.notes) {
-            content += `⚠️ 注意事項\n${data.notes}`;
-          }
-
-          output.textContent = content || '生成內容為空';
         } else {
           output.textContent = `❌ 生成失敗：${data.error || '未知錯誤'}\n${data.raw ? 'Raw: ' + data.raw.slice(0, 200) : ''}`;
         }
