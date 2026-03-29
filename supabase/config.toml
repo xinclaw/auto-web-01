@@ -1,5 +1,5 @@
 # Supabase project configuration
-project_id = "mrckamcwtaimbpfqfu"
+project_id = "btmrckamcwtaimbpfqfu"
 
 [api]
 enabled = true

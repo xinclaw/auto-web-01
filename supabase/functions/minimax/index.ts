@@ -1,12 +1,13 @@
 // Supabase Edge Function: /functions/v1/minimax
 // Proxies requests to MiniMax API, bypassing CORS and IP restrictions
+// NO Authorization required for testing
 
 const MINIMAX_API_URL = 'https://api.minimaxi.com/v1/text/chatcompletion_v2'
 const MINIMAX_API_KEY = Deno.env.get('MINIMAX_API_KEY') || 'sk-cp-zcSs-W2GX-CWRDKGcE1acXSlE17l-p6EBVg-1c7KiLSBz65J17jrHeZDoOPl4Jagp-DTdozuynKXgCvjRDfpOvB9d2tDgnEGvBGt26ogj5YCp2XkO4RyGgg'
 const MODEL = 'MiniMax-M2.7'
 
 Deno.serve(async (req) => {
-  // CORS headers
+  // CORS headers - allow all origins for testing
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
