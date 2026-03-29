@@ -429,11 +429,14 @@
       setLoading(`🚀 已送出：「${subject}」，正在生成標題...`, '生成中...（使用 MiniMax-v3）');
       
       try {
-        // 呼叫 n8n 標題生成-v3 工作流
-        const res = await fetch(`${webhookUrl}/generate-title-v3`, {
+        // Step 1: Build prompt from inputs
+        const prompt = `你是資深電商商品標題策略師。請根據以下資訊生成1個新標題。使用者關鍵詞：${subject}。請嚴格遵守：1) 58-60字（中文）2) 只輸出JSON格式：{\"title\":\"...\",\"rationale\":\"...\"}`;
+        
+        // Step 2: Call Vercel API Route (MiniMax Proxy)
+        const res = await fetch('/api/minimax', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category, subject })
+          body: JSON.stringify({ prompt })
         });
         
         // 先取 raw text
@@ -450,14 +453,29 @@
         try {
           data = JSON.parse(rawText);
         } catch (e) {
-          setResult('解析錯誤', `❌ Webhook 回傳非 JSON\n原始回應：\n${rawText.slice(0, 200)}`);
+          setResult('解析錯誤', `❌ API 回傳非 JSON\n原始回應：\n${rawText.slice(0, 200)}`);
           return;
         }
         
         if (data.ok) {
-          setResult(data.title, '✅ 生成成功（MiniMax-v3）', data.rationale);
+          // Parse the JSON content from MiniMax response
+          let title = '';
+          let rationale = '';
+          try {
+            const match = data.text.match(/\{[\s\S]*\}/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              title = parsed.title || data.text;
+              rationale = parsed.rationale || '';
+            } else {
+              title = data.text;
+            }
+          } catch (e) {
+            title = data.text;
+          }
+          setResult(title, '✅ 生成成功（MiniMax-v3）', rationale);
         } else {
-          setResult('生成失敗', `❌ ${data.error || '未知錯誤'}\n${data.raw ? 'Raw: ' + data.raw.slice(0, 100) : ''}`);
+          setResult('生成失敗', `❌ ${data.error || '未知錯誤'}\n${data.raw ? 'Raw: ' + data.raw.slice(0, 200) : ''}`);
         }
       } catch (err) {
         console.error('標題生成錯誤：', err);
