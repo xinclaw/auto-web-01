@@ -1,0 +1,191 @@
+{
+  "name": "標題生成-MiniMax-v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-title-v2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        32
+      ],
+      "id": "webhook-title",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "product_keywords",
+        "filterType": "string",
+        "filterString": "=category=eq.{{ $json.body.category }}"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        192,
+        -208
+      ],
+      "id": "supabase-get-rows",
+      "name": "Get many rows"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 0) 取 Supabase 多筆資料（從上一節點 Get many rows 來）\nconst rows = $input.all().map(i => i.json);\n\n// 1) 取 Webhook 的資料（Webhook 只有 1 item，所以永遠拿第 0 筆）\nconst webhook = $items(\"Webhook\")[0].json;\n\n// 2) 使用者輸入關鍵詞（前端送 keyword 或 subject 都可）\nconst keyword =\n  webhook.body?.keyword ||\n  webhook.body?.subject ||\n  \"\";\n\n// 3) 只取 title 當語料庫：去空白、截斷、去重、最多 50 筆\nconst titles = rows\n  .map(r => (r.title || \"\").replace(/\\s+/g, \" \").trim())\n  .filter(t => t.length > 0)\n  .map(t => t.slice(0, 60));\n\nconst uniq = [...new Set(titles)];\nconst finalTitles = uniq.slice(0, 50);\n\n// 4) 回傳單一 item 給 MiniMax\nreturn [\n  {\n    json: {\n      keyword,\n      titles: finalTitles,\n      count: finalTitles.length\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        32
+      ],
+      "id": "code-prepare",
+      "name": "Code - Prepare"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimaxi.com/v1/text/chatcompletion_v2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sk-api-IyjvHQLAkD25ft2dTBBVIQKs-94XqB2KhtR1leEuxJN3OOjK1R6hj5YNcJ4YlkKg1NxxQDWvnDsccOs5uw0dYils5RBftTYDqu8CuvQ0U2fnTgViVYJvc2Y"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "M2-her"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"你是資深電商商品標題策略師。請根據「使用者關鍵詞」與「參考標題語料庫」歸納出 1 個最適合的新標題。\n\n使用者關鍵詞：\n{{ $json.keyword }}\n\n參考標題語料庫（共 {{ $json.count }} 筆，每行一個）：\n{{ $json.titles.join(\"\\n\") }}\n\n任務：\n1) 請產出 1 個新標題 title（必須包含關鍵詞、可讀性高、適度重複詞、不誇大）\n2) 【嚴格執行】：58～60 字（中文）】\n3) 【嚴格禁止】使用誇大詞：最頂級、最好、完美、頂尖、極致、優質、必買、爆款、口味、容量可選、適用各年齡犬隻、提供完整營養、台灣現貨速發、給愛犬最好的選擇！\n多種口味可選、營養豐富、無添加、提升質感、SGS檢驗合格、情侶款、嚴禁使用主觀形容詞與行銷語，如：升級、必備款、推薦、專用、高質感、美觀、熱銷、首選、加分、年式、納七、電動休旅\n- 嚴禁任意編造車型或車廠\n- 嚴禁出現非汽機車部件\n- 嚴禁任意編獨特用詞\n- 嚴禁使用豪華等用詞\n- 嚴禁出現下列模糊用語：五代、七代、國產車、小型房車、改款、新版、舊款等\n- 嚴禁出現在標題中重複用語\n\n4) 請輸出一句 rationale（<= 20 字），說明你怎麼歸納的\n\n【類別規範（從使用者分類中判斷類別，符合哪一類就套用哪一類規則）】\nA. 汽車/機車/汽機車零件百貨（例如：汽車、機車、汽機車零件百貨、車用、改裝、雨刷、踏板、方向盤等）\n- 結構順序：品名/品類 → 車型/年份/代號(若有) → 材質/規格(若有) → 功能賣點(2~3) → 安裝/相容(若有)\n\n📌【標題格式（四段式）】\n嚴格遵守按照標題組合\n材質開頭+車型展開+安裝位置描述+關鍵字擴充\n 📌【材質開頭】（擇一）\n　例如：鎖匙包 鑰匙套\n 📌【車型展開命名邏輯】（空格區隔）\n　1-品牌＋車名＋排氣量／系列／代數／車款＋常見別名\n　例如：YAMAHA 山葉 Force 2.0 FORCE155、MAZDA 馬自達 3 四代 馬3 CX30\n　2-參考 https://www.xd-trading.com.tw/ 命名邏輯，可延伸出通俗講法，如「ALTIS 鍛造碳纖維」可延伸為「TOYOTA 豐田 ALTIS 12代」\n   3-若輸入中僅有平台代號（如：F10、Z33、B17），請主動擴寫為：品牌＋平台＋常見車型（最多展開3個，如 520i / 528i / 535i）\n    當我輸入車型時，你需要自動根據以下邏輯補全完整名稱：\n   3-1 品牌需以【英文＋中文】形式展開，例如：BMW 寶馬、TOYOTA 豐田、NISSAN 日產\n   3-2 車名需保留精準型號，不可簡化成世代名詞（❌ 不可說「五代」或「3系列」）\n   3-3 若車名為平台代號（如 F10、Z33），需自動擴展為對應常見市場版本：\n          - 例如：F10 → BMW 寶馬 F10 520i 528i 535i\n          - 例如：Z33 → NISSAN 日產 Z33 350Z\n   4 所有車型名稱間，請用「空格」區隔，以利搜尋演算法識別\n   5 本地化用語:MERCEDES-BENZ   縮短維BENZ即可\n   6 車型關鍵字展開規則\n      當你處理如 CIVIC、ALTIS、FOCUS、SENTRA、CAMRY 這類車型時，請展開所有常見用戶搜尋格式，  \n      以「關鍵詞疊加」方式列出不便於電商平台搜尋命中。\n   7 禁止事項\n          - 嚴禁使用主觀形容詞與行銷語，如：升級、必備款、推薦、專用、高質感、美觀、熱銷、首選、加分、年式、納七、電動休旅\n          - 嚴禁任意編造車型或車廠\n          - 嚴禁出現非汽機車部件\n          - 嚴禁任意編獨特用詞\n          - 嚴禁使用豪華等用詞\n          - 嚴禁出現下列模糊用語：五代、七代、國產車、小型房車、改款、新版、舊款等\n          - 嚴禁出現在標題中重複用語\n【汽機車電商關鍵字結構定義】\n1. 主商品品類（必選，只能 1 個）\n   例：方向盤套｜中控飾板｜門把保護貼｜排檔頭\n2. 車型／世代（按照關鍵詞中相同車型）\n   例：ALTIS 12代｜CIVIC 10代｜RAV4 5代｜KRV 180\n3. 材質（限 1～2 個）\n   例：碳纖維｜鍛造碳纖維｜TPU｜ABS｜鋁合金\n4. 功能／用途（限 1 個）\n   例：防刮｜防水｜耐熱｜改裝｜保護｜裝飾\n5. 安裝／相容資訊（選用）\n   例：免打孔｜專車專用｜直上安裝｜左右件\n6. 信任／轉換詞（限 1 個）\n   例｜適用年份標示\n7-1例如：\n          - CIVIC → 請展開為：CIVIC9 CIVIC 9 CIVIC 9代 喜美（**四種格式同時出現，空格隔開**）\n          - ALTIS → ALTIS 12 ALTIS12 ALTIS 12代\n          - FOCUS → FOCUS MK4 FOCUS 4 FOCUS四代 福克斯\n          - SENTRA → SENTRA B17 SENTRA 180 2.0\n          - 有平台代號（如 F10） | 自動展開為 F10 520i 528i 535i |\n          - 沒有平台代號，車型模糊  | 自動提出詢問（如 ALTIS 是第幾代）   \n          - 已補車型完整資訊     | 開始產出標題／詳情   \n          - 若使用者輸入硬殼 代表著是 產品關鍵字是 蓋 殼 罩\n8📌【使用者輸入範例】\n輸入：Model Y 碳纖維 後照鏡 硬殼\n→ 輸出：真碳纖維 Tesla Model3 Model Y Long R 碳纖維 後照鏡 後視鏡蓋 後視鏡殼 後視鏡罩\n\n輸入：RAV 4 防撞貼 BC柱\n→ 輸出：豐田 TOYOTA 5代 RAV4 GR RAV 4 防撞貼 卡夢 碳纖維 窗戶 中柱 BC柱 貼 防刮 保護 耐磨\n\n輸入：BMW 220i TPU\n→ 輸出：寶馬 BMW 220i U06 Luxury 透明膜 TPU 門把手 把手 犀牛盾 保護膜 貼膜 中控 手把 外把手\n\n輸入：斯柯達 FABIA 腳踏墊\n→ 輸出：SKODA 斯柯達 FABIA 1.0 TSI 腳踏墊 防水墊 蜂巢踏墊 耐磨腳踏墊 地毯 全包圍腳墊 腳墊立體踏墊\n\n輸入：BENZ 賓士 GLC 鎖匙包\n→ 輸出：BENZ 賓士 GLC X254 W214 GLE AMG GT 鑰匙 鎖匙包 真皮 瘋馬皮 真皮鑰匙套 鑰匙扣\n\n輸入：光陽 KYMCO 防雨膜\n→ 輸出：光陽 KYMCO S6 Rex Pro Ionex 後視鏡 防水膜 防雨貼 貼膜 保護膜 貼 EA25EA\n\n輸入：KIA Picanto   鎖匙包 翻毛皮\n→ 輸出：起亞KIA Picanto Sportage Stonic stinger EV6 鑰匙 殼 鎖匙包 翻毛皮 麂皮 麂皮\n\n輸入：Picanto 排檔 麂皮\n→ 輸出：起亞 Picanto Kia 1.2 GT-Line Plus 排檔 麂皮 翻毛皮 檔位 排檔頭 貼 Alcantara\n\n輸入：KRV 鍛造碳纖維 油箱貼 \n→ 輸出：鍛造碳纖維 光陽 KYMCO KRV 180 DDS TCS 油箱貼 保護貼 油蓋 碳纖維 卡夢 貼 油箱 加油貼\n\n輸入：Cayenne 避光墊\n→ 輸出：保時捷 Porsche 凱彥 凱宴 Cayenne GTS S Turbo 儀表台 避光墊 隔熱 墊 止滑 防滑 遮陽\n以下僅供避光墊\n避光墊 隔熱墊 止滑墊 防滑墊 防曬墊 止滑 防滑 防曬\n\n以下僅供鍛造碳纖維\n卡夢 卡夢貼 碳纖維 碳纖維貼紙 卡夢貼片 卡夢框 碳纖維貼\n\n以下僅供翻毛皮\n鑰匙 殼 鎖匙包 翻毛皮 麂皮 麂皮鑰匙套 鑰匙殼 鑰匙扣  鑰匙套 鑰匙皮套 鑰匙殼\n\n以下僅供防雨膜\n後視鏡 防水膜 防雨貼 貼膜 保護膜 貼 防雨膜\n\n以下僅供真皮\n鑰匙 殼 鎖匙包 真皮 真皮鑰匙套 鑰匙殼 鑰匙扣  鑰匙套 鑰匙皮套 鑰匙殼\n\n以下僅供腳踏墊\n腳踏墊 防水墊 蜂巢踏墊 耐磨腳踏墊 地毯 全包圍腳墊 腳墊立體踏墊\n\n以下僅供TPU\n透明膜 TPU 犀牛盾 貼膜\n\n以下僅供碳纖BC柱貼\n卡夢 碳纖維 窗戶BC柱 貼 防刮 中柱 中柱貼\n\n以下僅供碳纖維\n真碳纖維 碳纖維 卡夢 卡夢貼 碳纖維貼\n\n以下僅供硬殼碳纖維\n後照鏡 面板飾蓋 前蓋 前飾板 前車殼 蓋  殼 小盾 大盾 面罩 車殼 油箱蓋 油箱 飾蓋\n\n📦【關鍵字詞庫】\n以下僅供功能性或位置擴展之用：\n啟動圈\n鎖頭 鑰匙 鑰匙孔 卡夢 貼 油箱 啟動圈 USB IKEY 啟動鈕\n\n油箱貼 \n保護貼 油蓋 油箱 加油貼 油箱貼 油箱蓋 油箱 加油貼\n\n方向盤\n方向盤貼 車標\n\n尾門 尾廂貼 後車箱 車標 保桿貼 排檔飾蓋 \n\n排檔\n排檔 排檔貼 檔位 檔位貼 檔位框\n\n 方向燈\n開關 大燈 方向燈\n\n喇叭 中控出風口\n\n窗戶\n窗戶 框 升降 開關貼片 開關\n\n尾翼\n尾燈 蓋 尾燈蓋 尾翼 尾翼蓋 尾燈上蓋\n\n水杯\n水杯 杯架 置物 飲料架 扶手貼\n\n中控 \n中控 貼 冷氣框 空調飾條 空調貼片\n\n鎖頭\n鎖頭 鑰匙 油蓋 \n\n旋鈕 旋鈕貼 貼 貼紙 貼片 飾蓋 飾條 裝飾貼 飾板 \n車身貼 車蓋條 大燈貼  油蓋 油杯貼 剎車油壺貼 油刹車貼\n儀表台 儀表貼 碼表貼 時速錶 中控蓋 中控貼 中控面板貼 控制鈕貼紙 面板飾條 面板飾蓋 車門貼 車門內飾\n 出風口貼片 按鈕貼 車內貼紙 內裝貼紙 車用貼紙 汽車百貨 車用配件 車用貼片 啟動圈 啟動 鈕  面板  框 \n空氣圈 冷氣卡夢按鈕 內裝 usb   保桿貼  車標 面板飾蓋 前蓋 前飾板 保護貼  貼   車標  框\n大燈\t車前標\t手把\tTPU銀幕\t啟動鈕\t換檔撥片\t中柱\t門檻\t排檔\t升降\t出風口 內門碗\t內拉手\tUSB\t後照鏡\t\n貼 油箱 USB\n\n\n\nB. 寵物類（例如：貓、狗、寵物、飼料、罐頭、零食、化毛、除臭等）\n- 結構順序：品名/品類 → 適用對象(貓/狗/年齡) → 規格/口味/容量 → 賣點(2~3) → 產地/出貨資訊\n- 禁止：療效、治療、處方等醫療宣稱\n舉例正確的標題 輸入狗飼料\n狗飼料 狗狗凍乾 貓狗零食 犬貓可食 狗食品\n\n\nC. 飾品（例如：項鍊、戒指、手鍊、耳環、吊墜等）\n- 結構順序：品名/品類 → 材質 → 風格設計 → 尺寸/款式 → 場景(送禮/通勤) → 出貨資訊\n- 優先放入：材質、尺寸、鍍層、\n-禁止：療效、治療、處方等醫療宣稱\n\nD. 五金/服裝/工具（例如：工具、五金、螺絲、扳手、工作服、手套、背心、收納等）\n- 結構順序：品名/品類 → 規格/尺寸/型號 → 材質/工藝 → 用途場景 → 賣點(2~3) → 出貨/保固\n- 優先放入：型號尺寸、材質工藝、用途場景（可驗證資訊）\n【規範2】\n從看到的titles中 去篩選出最多出現的字詞擴詞\n\n⚠️ 只輸出 JSON，不得有任何其他文字。格式必須完全一致：\n{\n  \"title\": \"...\",\n  \"rationale\": \"...\"\n}\"}]"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        480,
+        -208
+      ],
+      "id": "http-minimax",
+      "name": "HTTP Request - MiniMax"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 解析 MiniMax API 回應\nconst response = $input.first().json;\n\nlet result = {\n  ok: true,\n  title: \"\",\n  rationale: \"\"\n};\n\ntry {\n  // MiniMax 回傳格式\n  const content = response.choices[0].message.content;\n  \n  // 嘗試解析為 JSON\n  const parsed = JSON.parse(content);\n  result.title = parsed.title || \"\";\n  result.rationale = parsed.rationale || \"\";\n} catch (e) {\n  result.ok = false;\n  result.error = \"解析失敗: \" + e.message;\n  // 保留原始回應供除錯\n  result.raw = response.choices?.[0]?.message?.content || \"\";\n}\n\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        32
+      ],
+      "id": "code-parse",
+      "name": "Code - Parse Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": {{ $json.ok }},\n  \"title\": \"{{ $json.title }}\",\n  \"rationale\": \"{{ $json.rationale }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        800,
+        -208
+      ],
+      "id": "respond",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code - Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Code - Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Prepare": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - MiniMax",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - MiniMax": {
+      "main": [
+        [
+          {
+            "node": "Code - Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

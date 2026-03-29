@@ -1,0 +1,174 @@
+{
+  "name": "詳情頁生成-MiniMax",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-detail",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 32],
+      "id": "webhook-detail",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "product_keywords",
+        "filterType": "string",
+        "filterString": "=category=eq.{{ $json.body.category }}"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [192, -208],
+      "id": "supabase-get-rows",
+      "name": "Get many rows"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 0) 取 Supabase 多筆資料（從上一節點 Get many rows 來）\nconst rows = $input.all().map(i => i.json);\n\n// 1) 取 Webhook 的資料\nconst webhook = $items(\"Webhook\")[0].json;\n\n// 2) 使用者輸入\nconst keyword = webhook.body?.keyword || webhook.body?.subject || \"\";\nconst category = webhook.body?.category || \"\";\nconst title = webhook.body?.title || \"\";\n\n// 3) 只取 description/detail 當語料庫：去空白、截斷、去重、最多 30 筆\nconst details = rows\n  .map(r => (r.description || r.detail || \"\").replace(/\\s+/g, \" \").trim())\n  .filter(t => t.length > 0)\n  .map(t => t.slice(0, 200));\n\nconst uniq = [...new Set(details)];\nconst finalDetails = uniq.slice(0, 30);\n\n// 4) 回傳單一 item 給 MiniMax\nreturn [\n  {\n    json: {\n      keyword,\n      category,\n      title,\n      details: finalDetails,\n      count: finalDetails.length\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [304, 32],
+      "id": "code-prepare",
+      "name": "Code - Prepare"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimax.chat/v1/text/chatcompletion_v2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_MINIMAX_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "MiniMax-Text-01"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"你是資深電商商品詳情頁文案策略師。請根據「商品標題」與「參考詳情頁語料庫」生成一個完整的商品詳情頁。\n\n商品標題：\n{{ $json.title }}\n\n使用者關鍵詞：\n{{ $json.keyword }}\n\n類別：\n{{ $json.category }}\n\n參考詳情頁語料庫（共 {{ $json.count }} 筆，每行一個）：\n{{ $json.details.join(\"\\n---\\n\") }}\n\n任務：\n1) 生成一個完整的商品詳情頁內容\n2) 結構包含：\n   - 商品特色（3-5點）\n   - 商品規格\n   - 適用場景/對象\n   - 注意事項/保固資訊\n3) 語言：繁體中文\n4) 禁止：療效、治療、處方等醫療宣稱；誇大不實用語\n\n⚠️ 只輸出 JSON，不得有任何其他文字。格式必須完全一致：\n{\n  \"features\": [\"特色1\", \"特色2\", \"特色3\"],\n  \"specs\": {\"規格項目\": \"規格內容\"},\n  \"scenarios\": \"適用場景描述\",\n  \"notes\": \"注意事項/保固資訊\"\n}\"}]"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [480, -208],
+      "id": "http-minimax",
+      "name": "HTTP Request - MiniMax"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 解析 MiniMax API 回應\nconst response = $input.first().json;\n\nlet result = {\n  ok: true,\n  features: [],\n  specs: {},\n  scenarios: \"\",\n  notes: \"\"\n};\n\ntry {\n  // MiniMax 回傳格式\n  const content = response.choices[0].message.content;\n  \n  // 嘗試解析為 JSON\n  const parsed = JSON.parse(content);\n  result.features = parsed.features || [];\n  result.specs = parsed.specs || {};\n  result.scenarios = parsed.scenarios || \"\";\n  result.notes = parsed.notes || \"\";\n} catch (e) {\n  result.ok = false;\n  result.error = \"解析失敗: \" + e.message;\n  // 保留原始回應供除錯\n  result.raw = response.choices?.[0]?.message?.content || \"\";\n}\n\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [656, 32],
+      "id": "code-parse",
+      "name": "Code - Parse Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": {{ $json.ok }},\n  \"features\": {{ $json.features }},\n  \"specs\": {{ $json.specs }},\n  \"scenarios\": \"{{ $json.scenarios }}\",\n  \"notes\": \"{{ $json.notes }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [800, -208],
+      "id": "respond",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code - Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Code - Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Prepare": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - MiniMax",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - MiniMax": {
+      "main": [
+        [
+          {
+            "node": "Code - Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "detail-v1-minimax"
+}

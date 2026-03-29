@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>智集電商 - 工作台</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
   
@@ -34,6 +35,7 @@
         <h1 class="text-lg font-bold text-gray-800">智集電商</h1>
       </div>
       <p class="text-xs text-gray-400 mt-2">內部工具系統</p>
+      <p id="userEmail" class="text-xs text-blue-500 mt-1 truncate"></p>
     </div>
     
     <nav class="p-4 space-y-2">
@@ -64,10 +66,10 @@
     </nav>
     
     <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
-      <a href="index.html" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-500 transition font-medium">
+      <button id="logoutBtn" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-500 transition font-medium w-full">
         <span>🚪</span>
         <span>登出</span>
-      </a>
+      </button>
     </div>
   </aside>
   
@@ -80,13 +82,19 @@
         <div class="flex items-center gap-2 mb-6">
           <span class="text-2xl">✍️</span>
           <h2 class="text-xl font-bold text-gray-800">標題撰寫</h2>
+          <span class="ml-auto text-xs text-gray-400">✦ v2</span>
         </div>
         
         <div class="space-y-5">
           <div>
             <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品分類搜尋</label>
-            <input type="text" id="categoryInput" placeholder="輸入分類 (例如：寵物 / 汽機車)"
+            <select id="categoryInput"
               class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+              <option value="car">汽車/機車零件</option>
+              <option value="pet">寵物用品</option>
+              <option value="accessory">飾品</option>
+              <option value="hardware">五金/工具</option>
+            </select>
           </div>
           
           <div>
@@ -156,6 +164,12 @@
             <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品特色（用逗號分隔）</label>
             <textarea id="productInfo" rows="3" placeholder="輸入商品特色，如：碳纖維材质,防水,易安裝"
               class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">商品標題（可選，用於增強內容相關性）</label>
+            <input type="text" id="productTitle" placeholder="粘貼已生成的標題（可提升內容與標題一致性）"
+              class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
           </div>
           
           <button id="generateDetailBtn"
@@ -229,8 +243,17 @@
         <div class="space-y-5">
           <div>
             <label class="block text-xs font-bold text-gray-400 uppercase mb-2">n8n Webhook URL</label>
-            <input type="text" id="n8nWebhook" placeholder="https://your-n8n.com/webhook/..."
+            <input type="text" id="n8nWebhook" placeholder="https://your-n8n.com/webhook/"
               class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+          </div>
+
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+            <p class="text-xs text-blue-600 font-medium">💡 n8n 工作流端點（Production）：</p>
+            <ul class="text-xs text-blue-500 mt-1 space-y-1">
+              <li>• 標題生成：<code class="bg-blue-100 px-1 rounded">/webhook/generate-title-v3</code></li>
+              <li>• 詳情生成：<code class="bg-blue-100 px-1 rounded">/webhook/generate-detail-v1</code></li>
+            </ul>
+            <p class="text-[10px] text-gray-400 mt-2">⚠️ 確認 workflow 狀態為「Published」再使用</p>
           </div>
           
           <div>
@@ -258,13 +281,56 @@
   <script>
     // ======= [設定區] =======
     const CONFIG = {
-      n8nWebhook: localStorage.getItem('n8nWebhook') || 'YOUR_N8N_WEBHOOK_URL',
+      n8nWebhook: localStorage.getItem('n8nWebhook') || '',
       supabaseUrl: localStorage.getItem('supabaseUrl') || '',
       supabaseKey: localStorage.getItem('supabaseKey') || ''
     };
+
+    let supabase = null;
+    
+    // 初始化 Supabase
+    function initSupabase() {
+      if (CONFIG.supabaseUrl && CONFIG.supabaseKey) {
+        supabase = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+      }
+    }
+    
+    // 檢查登入狀態
+    async function checkAuth() {
+      initSupabase();
+      if (!supabase) {
+        // 未設定 Supabase，跳過驗證
+        return true;
+      }
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = 'index.html';
+        return false;
+      }
+      
+      if (session.user) {
+        document.getElementById('userEmail').textContent = session.user.email;
+      }
+      return true;
+    }
+
+    // 登出
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+      localStorage.removeItem('supabaseUrl');
+      localStorage.removeItem('supabaseKey');
+      localStorage.removeItem('n8nWebhook');
+      window.location.href = 'index.html';
+    });
     
     // 載入已儲存的設定
-    window.onload = () => {
+    window.onload = async () => {
+      const isLoggedIn = await checkAuth();
+      if (!isLoggedIn) return;
+      
       if (localStorage.getItem('n8nWebhook')) {
         document.getElementById('n8nWebhook').value = localStorage.getItem('n8nWebhook');
       }
@@ -317,7 +383,7 @@
       });
     });
 
-    // 標題撰寫功能
+    // ======= 標題撰寫功能 =======
     const btn = document.getElementById('generateBtn');
     const resultSection = document.getElementById('resultSection');
     const titleOutput = document.getElementById('titleOutput');
@@ -353,28 +419,148 @@
         alert('請填寫：分類名稱、主詞關鍵字');
         return;
       }
+
+      const webhookUrl = CONFIG.n8nWebhook;
+      if (!webhookUrl) {
+        alert('請先在「系統設定」填入 n8n Webhook URL');
+        return;
+      }
       
-      setLoading(`🚀 已送出：「${subject}」，正在生成標題...`, '生成中...');
+      setLoading(`🚀 已送出：「${subject}」，正在生成標題...`, '生成中...（使用 MiniMax-v3）');
       
       try {
-        const res = await fetch(`${CONFIG.n8nWebhook}/generate-title`, {
+        // 呼叫 n8n 標題生成-v3 工作流
+        const res = await fetch(`${webhookUrl}/generate-title-v3`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ category, subject })
         });
         
-        const data = await res.json();
+        // 先取 raw text
+        const rawText = await res.text();
+        console.log('📨 [標題生成] Raw Response:', rawText);
+        
+        if (!res.ok) {
+          setResult('連線錯誤', `❌ HTTP ${res.status}: ${res.statusText}\n${rawText}`);
+          return;
+        }
+        
+        // 嘗試解析 JSON
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (e) {
+          setResult('解析錯誤', `❌ Webhook 回傳非 JSON\n原始回應：\n${rawText.slice(0, 200)}`);
+          return;
+        }
         
         if (data.ok) {
-          setResult(data.title, '✅ 生成成功', data.rationale);
+          setResult(data.title, '✅ 生成成功（MiniMax-v3）', data.rationale);
         } else {
-          setResult('生成失敗', `❌ ${data.error || '未知錯誤'}`);
+          setResult('生成失敗', `❌ ${data.error || '未知錯誤'}\n${data.raw ? 'Raw: ' + data.raw.slice(0, 100) : ''}`);
         }
       } catch (err) {
+        console.error('標題生成錯誤：', err);
         setResult('連線錯誤', `❌ ${err.message}`);
       }
     });
 
+    // ======= 詳情頁功能 =======
+    document.getElementById('generateDetailBtn').addEventListener('click', async () => {
+      const productName = document.getElementById('productName').value.trim();
+      const productCategory = document.getElementById('productCategory').value.trim();
+      const productInfo = document.getElementById('productInfo').value.trim();
+      const productTitle = document.getElementById('productTitle').value.trim();
+
+      if (!productName || !productInfo) {
+        alert('請填寫：商品名稱、商品特色');
+        return;
+      }
+
+      const webhookUrl = CONFIG.n8nWebhook;
+      if (!webhookUrl) {
+        alert('請先在「系統設定」填入 n8n Webhook URL');
+        return;
+      }
+
+      const result = document.getElementById('detailResult');
+      const output = document.getElementById('detailOutput');
+      result.classList.remove('hidden');
+      output.innerHTML = '⏳ 正在生成詳情頁（使用 MiniMax）...';
+      output.classList.add('animate-pulse', 'text-gray-400');
+
+      try {
+        // 呼叫 n8n 詳情生成工作流 v1
+        const res = await fetch(`${webhookUrl}/generate-detail-v1`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            keyword: productInfo,
+            category: productCategory,
+            title: productTitle || productName
+          })
+        });
+
+        // 先取 raw text
+        const rawText = await res.text();
+        console.log('📨 [詳情生成] Raw Response:', rawText);
+        
+        output.classList.remove('animate-pulse', 'text-gray-400');
+
+        if (!res.ok) {
+          output.textContent = `❌ HTTP ${res.status}: ${res.statusText}\n${rawText}`;
+          return;
+        }
+
+        // 嘗試解析 JSON
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (e) {
+          output.textContent = `❌ Webhook 回傳非 JSON\n原始回應：\n${rawText.slice(0, 300)}`;
+          return;
+        }
+
+        if (data.ok) {
+          // 組合詳情頁內容
+          let content = '';
+          
+          if (data.features && data.features.length > 0) {
+            content += '📌 商品特色\n';
+            data.features.forEach((f, i) => {
+              content += `${i + 1}. ${f}\n`;
+            });
+            content += '\n';
+          }
+
+          if (data.specs && Object.keys(data.specs).length > 0) {
+            content += '📋 規格資訊\n';
+            for (const [key, val] of Object.entries(data.specs)) {
+              content += `• ${key}：${val}\n`;
+            }
+            content += '\n';
+          }
+
+          if (data.scenarios) {
+            content += `🎯 適用場景\n${data.scenarios}\n\n`;
+          }
+
+          if (data.notes) {
+            content += `⚠️ 注意事項\n${data.notes}`;
+          }
+
+          output.textContent = content || '生成內容為空';
+        } else {
+          output.textContent = `❌ 生成失敗：${data.error || '未知錯誤'}\n${data.raw ? 'Raw: ' + data.raw.slice(0, 200) : ''}`;
+        }
+      } catch (err) {
+        console.error('詳情生成錯誤：', err);
+        output.classList.remove('animate-pulse', 'text-gray-400');
+        output.textContent = '❌ 連線錯誤：' + err.message;
+      }
+    });
+
+    // ======= 複製功能 =======
     window.copyToClipboard = () => {
       const text = titleOutput.innerText.trim();
       if (!text || text.includes('錯誤') || text.includes('生成中')) return;
@@ -389,6 +575,8 @@
 
     window.copyDetail = () => {
       const text = document.getElementById('detailOutput').innerText.trim();
+      if (!text) return;
+      
       navigator.clipboard.writeText(text).then(() => {
         const copyBtn = document.getElementById('copyDetailBtn');
         const originalText = copyBtn.innerText;
@@ -396,14 +584,6 @@
         setTimeout(() => copyBtn.innerText = originalText, 2000);
       });
     };
-
-    // 詳情頁功能（預留）
-    document.getElementById('generateDetailBtn')?.addEventListener('click', () => {
-      const result = document.getElementById('detailResult');
-      const output = document.getElementById('detailOutput');
-      result.classList.remove('hidden');
-      output.textContent = '詳情頁功能整合中...';
-    });
 
     // 車型辨識（預留）
     document.getElementById('recognizeCarBtn')?.addEventListener('click', () => {
@@ -415,17 +595,24 @@
 
     // 儲存設定
     document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
-      const n8nWebhook = document.getElementById('n8nWebhook').value;
-      const supabaseUrl = document.getElementById('supabaseUrl').value;
-      const supabaseKey = document.getElementById('supabaseKey').value;
+      const n8nWebhook = document.getElementById('n8nWebhook').value.trim();
+      const supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+      const supabaseKey = document.getElementById('supabaseKey').value.trim();
       
       if (n8nWebhook) localStorage.setItem('n8nWebhook', n8nWebhook);
+      else localStorage.removeItem('n8nWebhook');
+      
       if (supabaseUrl) localStorage.setItem('supabaseUrl', supabaseUrl);
+      else localStorage.removeItem('supabaseUrl');
+      
       if (supabaseKey) localStorage.setItem('supabaseKey', supabaseKey);
+      else localStorage.removeItem('supabaseKey');
       
       CONFIG.n8nWebhook = n8nWebhook;
       CONFIG.supabaseUrl = supabaseUrl;
       CONFIG.supabaseKey = supabaseKey;
+      
+      initSupabase();
       
       alert('設定已儲存');
     });
