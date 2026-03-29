@@ -432,8 +432,9 @@
         // Step 1: Build prompt from inputs
         const prompt = `你是資深電商商品標題策略師。請根據以下資訊生成1個新標題。使用者關鍵詞：${subject}。請嚴格遵守：1) 58-60字（中文）2) 只輸出JSON格式：{\"title\":\"...\",\"rationale\":\"...\"}`;
         
-        // Step 2: Call Vercel API Route (MiniMax Proxy)
-        const res = await fetch('/api/minimax', {
+        // Step 2: Call Supabase Edge Function (MiniMax Proxy)
+        const API_URL = 'https://mrckamcwtaimbpfqfu.supabase.co/functions/v1/minimax';
+        const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt })
@@ -523,8 +524,9 @@
   "notes": "注意事項/保固資訊"
 }`;
 
-        // Call Vercel API Route
-        const res = await fetch('/api/minimax', {
+        // Call Supabase Edge Function
+        const API_URL = 'https://mrckamcwtaimbpfqfu.supabase.co/functions/v1/minimax';
+        const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt })
