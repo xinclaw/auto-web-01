@@ -51,7 +51,7 @@
             },
             {
               "name": "Authorization",
-              "value": "Bearer YOUR_MINIMAX_API_KEY"
+              "value": "Bearer sk-cp-zcSs-W2GX-CWRDKGcE1acXSlE17l-p6EBVg-1c7KiLSBz65J17jrHeZDoOPl4Jagp-DTdozuynKXgCvjRDfpOvB9d2tDgnEGvBGt26ogj5YCp2XkO4RyGgg"
             }
           ]
         },
@@ -62,7 +62,7 @@
           "parameters": [
             {
               "name": "model",
-              "value": "MiniMax-Text-01"
+              "value": "MiniMax-M2.7"
             },
             {
               "name": "messages",
